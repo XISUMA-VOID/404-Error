@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="icon" href="icons8-youtube-logo.svg" type="image/x-icon" />
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hub Tube</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="all" id="errorContainer">
+      <h1>4<span class="zero" onclick="startGame()">0</span>4</h1>
+      <h2>Page Not Found</h2>
+      <p>The page you are looking for might have been removed, try clicking the zero above to redirect</p>
+      <a href="index.html" id="paddle">Back To Home</a>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+      let canvas = document.getElementById("gameCanvas");
+      let ctx = canvas.getContext("2d");
+      let paddle, ball, blocks, barriers;
+      const initialSpeed = 6;
+      let dx, dy;
+      let gameActive = false;
+      let gameWon = false;
+      const blockRowCount = 2;
+      const blockColumnCount = Math.floor(window.innerWidth / 120);
+      const blockWidth = 100;
+      const blockHeight = 20;
+      const blockPadding = 20;
+      const blockOffsetTop = 50;
+      const blockOffsetLeft = (window.innerWidth - blockColumnCount * (blockWidth + blockPadding)) / 2;
+      const colors = ["red", "blue", "green", "yellow", "purple", "orange"];
+
+      function startGame() {
+        if (gameActive) return;
+        gameActive = true;
+        gameWon = false;
+
+        document.getElementById("errorContainer").style.display = "none";
+        canvas.style.display = "block";
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        paddle = {
+          x: canvas.width / 2 - 60,
+          y: canvas.height - 30,
+          width: 120,
+          height: 10,
+        };
+
+        ball = {
+          x: canvas.width / 2,
+          y: canvas.height / 2,
+          radius: 10,
+        };
+
+        dx = initialSpeed;
+        dy = -initialSpeed;
+
+        blocks = [];
+        for (let r = 0; r < blockRowCount; r++) {
+          blocks[r] = [];
+          for (let c = 0; c < blockColumnCount; c++) {
+            blocks[r][c] = {
+              x: c * (blockWidth + blockPadding) + blockOffsetLeft,
+              y: r * (blockHeight + blockPadding) + blockOffsetTop,
+              color: colors[Math.floor(Math.random() * colors.length)],
+              visible: true,
+            };
+          }
+        }
+
+        barriers = [
+          { x: canvas.width / 6, y: canvas.height / 4, width: 200, height: 20 },
+          { x: (canvas.width / 3) * 2, y: canvas.height / 3, width: 200, height: 20 },
+          { x: canvas.width / 4, y: canvas.height / 2, width: 200, height: 20 },
+          { x: (canvas.width / 4) * 3 - 150, y: (canvas.height / 3) * 2, width: 200, height: 20 },
+          { x: canvas.width / 2 - 100, y: canvas.height / 1.5, width: 200, height: 20 },
+        ];
+
+        document.addEventListener("mousemove", movePaddle);
+        requestAnimationFrame(updateGame);
+      }
+
+      function movePaddle(event) {
+        paddle.x = event.clientX - paddle.width / 2;
+      }
+
+      function drawBlocks() {
+        for (let r = 0; r < blockRowCount; r++) {
+          for (let c = 0; c < blockColumnCount; c++) {
+            let block = blocks[r][c];
+            if (block.visible) {
+              ctx.fillStyle = block.color;
+              ctx.fillRect(block.x, block.y, blockWidth, blockHeight);
+            }
+          }
+        }
+      }
+
+      function detectCollision() {
+        let allBlocksBroken = true;
+        for (let r = 0; r < blockRowCount; r++) {
+          for (let c = 0; c < blockColumnCount; c++) {
+            let block = blocks[r][c];
+            if (block.visible) {
+              allBlocksBroken = false;
+              if (
+                ball.x > block.x &&
+                ball.x < block.x + blockWidth &&
+                ball.y > block.y &&
+                ball.y < block.y + blockHeight
+              ) {
+                dy = -dy;
+                block.visible = false;
+              }
+            }
+          }
+        }
+        if (allBlocksBroken) {
+          gameWon = true;
+          gameActive = false;
+          window.location.href = "real.html";
+        }
+      }
+
+      function updateGame() {
+        if (!gameActive) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawBlocks();
+
+        ctx.fillStyle = "#f7961d";
+        ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+
+        for (let barrier of barriers) {
+          ctx.fillStyle = "gray";
+          ctx.fillRect(barrier.x, barrier.y, barrier.width, barrier.height);
+          if (
+            ball.x + ball.radius > barrier.x &&
+            ball.x - ball.radius < barrier.x + barrier.width &&
+            ball.y + ball.radius > barrier.y &&
+            ball.y - ball.radius < barrier.y + barrier.height
+          ) {
+            // Determine the side of collision and adjust ball position and direction
+            if (ball.x < barrier.x || ball.x > barrier.x + barrier.width) {
+              dx = -dx;
+              ball.x += dx;
+            } else {
+              dy = -dy;
+              ball.y += dy;
+            }
+          }
+        }
+
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "white";
+        ctx.fill();
+        ctx.closePath();
+
+        ball.x += dx;
+        ball.y += dy;
+
+        if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
+          dx = -dx;
+        }
+        if (ball.y - ball.radius < 0) {
+          dy = -dy;
+        }
+        if (ball.y + ball.radius > paddle.y && ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
+          dy = -dy;
+        }
+        if (ball.y + ball.radius > canvas.height) {
+          if (!gameWon) {
+            gameActive = false;
+            alert("Game Over! Click the 0 to restart.");
+            document.getElementById("errorContainer").style.display = "block";
+            canvas.style.display = "none";
+          }
+        }
+
+        detectCollision();
+        requestAnimationFrame(updateGame);
+      }
+    </script>
+  </body>
+</html>
